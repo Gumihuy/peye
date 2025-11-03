@@ -8,7 +8,6 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 from time import sleep
 
-
 class LinuxRouter(Node):
     "Router dengan IP forwarding"
     def config(self, **params):
@@ -68,8 +67,14 @@ def run():
     r3.cmd('ip route add 10.0.0.0/24 via 10.0.3.1')
     r3.cmd('ip route add 10.0.2.0/24 via 10.0.3.1')
 
-    info('\n*** Menunggu routing stabil... ***\n')
-    sleep(3)
+    info('\n*** Menunggu routing dan ARP stabil... ***\n')
+    sleep(5)
+
+    info('\n*** Ping antar router (ARP warm-up) ***\n')
+    r1.cmd('ping -c1 10.0.1.2')
+    r2.cmd('ping -c1 10.0.1.1')
+    r2.cmd('ping -c1 10.0.3.2')
+    r3.cmd('ping -c1 10.0.3.1')
 
     info('\n*** Uji konektivitas seluruh host ***\n')
     net.pingAll()
