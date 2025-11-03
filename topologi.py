@@ -34,7 +34,7 @@ class MyTopo(Topo):
         self.addLink(h2, r2, intfName2='r2-eth1', params2={'ip': '10.0.2.1/24'})
         self.addLink(h3, r3, intfName2='r3-eth1', params2={'ip': '10.0.4.1/24'})
 
-        # Koneksi antar-router
+        # Koneksi antar router
         self.addLink(r1, r2,
                      intfName1='r1-eth1', params1={'ip': '10.0.1.1/30'},
                      intfName2='r2-eth0', params2={'ip': '10.0.1.2/30'})
@@ -48,46 +48,46 @@ def run():
     net = Mininet(topo=topo, link=TCLink, controller=None)
     net.start()
 
-    info('\n*** Menambahkan routing statis antar router ***\n')
     r1, r2, r3 = net['r1'], net['r2'], net['r3']
 
-    # ROUTING R1
-    r1.cmd('ip route add 10.0.1.0/30 dev r1-eth1')
+    info('\n*** Setting Routing Antar Router ***\n')
+
+    # Routing antar router
     r1.cmd('ip route add 10.0.2.0/24 via 10.0.1.2')
     r1.cmd('ip route add 10.0.3.0/30 via 10.0.1.2')
     r1.cmd('ip route add 10.0.4.0/24 via 10.0.1.2')
 
-    # ROUTING R2
     r2.cmd('ip route add 10.0.0.0/24 via 10.0.1.1')
     r2.cmd('ip route add 10.0.4.0/24 via 10.0.3.2')
-    r2.cmd('ip route add 10.0.1.0/30 dev r2-eth0')
-    r2.cmd('ip route add 10.0.3.0/30 dev r2-eth2')
 
-    # ROUTING R3
     r3.cmd('ip route add 10.0.0.0/24 via 10.0.3.1')
     r3.cmd('ip route add 10.0.2.0/24 via 10.0.3.1')
-    r3.cmd('ip route add 10.0.3.0/30 dev r3-eth0')
 
-    info('\n*** Menunggu routing stabil... ***\n')
-    sleep(4)
+    # Tambahan untuk memastikan koneksi antar-router selalu hidup
+    for r in (r1, r2, r3):
+        r.cmd('ip route add 10.0.1.0/30 dev r1-eth1 || true')
+        r.cmd('ip route add 10.0.3.0/30 dev r3-eth0 || true')
+        r.cmd('ip neigh flush all')
 
-    # Flush ARP
+    sleep(2)
+
+    info('\n*** Pre-warming koneksi antar-router (ping 1x biar ARP aktif) ***\n')
+    r1.cmd('ping -c1 10.0.1.2')
+    r2.cmd('ping -c1 10.0.3.2')
+    r3.cmd('ping -c1 10.0.3.1')
+    sleep(2)
+
+    # Flush ARP sekali lagi setelah koneksi aktif
     for r in (r1, r2, r3):
         r.cmd('ip neigh flush all')
-    sleep(2)
 
-    info('\n*** Tes pre-koneksi antar-router ***\n')
-    r1.cmd('ping -c 1 10.0.1.2')
-    r2.cmd('ping -c 1 10.0.3.2')
-    r3.cmd('ping -c 1 10.0.3.1')
     sleep(2)
-
-    info('\n*** Tes koneksi host h1 ke h2 dan h3 ***\n')
+    info('\n*** Tes koneksi dari h1 ke h2 dan h3 ***\n')
     h1 = net['h1']
-    h1.cmdPrint('ping -c 2 10.0.2.2')
-    h1.cmdPrint('ping -c 2 10.0.4.2')
+    h1.cmdPrint('ping -c 3 10.0.2.2')
+    h1.cmdPrint('ping -c 3 10.0.4.2')
 
-    info('\n*** Tes konektivitas seluruh host (pingall) ***\n')
+    info('\n*** Tes pingall keseluruhan ***\n')
     net.pingAll()
 
     CLI(net)
