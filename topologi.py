@@ -48,39 +48,46 @@ def run():
     net = Mininet(topo=topo, link=TCLink, controller=None)
     net.start()
 
-    info('\n**** Menambahkan routing statis antar router ****\n')
+    info('\n*** Menambahkan routing statis antar router ***\n')
     r1, r2, r3 = net['r1'], net['r2'], net['r3']
 
-    # Routing antar-router
+    # ROUTING R1
+    r1.cmd('ip route add 10.0.1.0/30 dev r1-eth1')
     r1.cmd('ip route add 10.0.2.0/24 via 10.0.1.2')
     r1.cmd('ip route add 10.0.3.0/30 via 10.0.1.2')
     r1.cmd('ip route add 10.0.4.0/24 via 10.0.1.2')
 
+    # ROUTING R2
     r2.cmd('ip route add 10.0.0.0/24 via 10.0.1.1')
     r2.cmd('ip route add 10.0.4.0/24 via 10.0.3.2')
+    r2.cmd('ip route add 10.0.1.0/30 dev r2-eth0')
+    r2.cmd('ip route add 10.0.3.0/30 dev r2-eth2')
 
+    # ROUTING R3
     r3.cmd('ip route add 10.0.0.0/24 via 10.0.3.1')
     r3.cmd('ip route add 10.0.2.0/24 via 10.0.3.1')
+    r3.cmd('ip route add 10.0.3.0/30 dev r3-eth0')
 
-    info('\n**** Menunggu routing stabil... ****\n')
-    sleep(3)
+    info('\n*** Menunggu routing stabil... ***\n')
+    sleep(4)
 
-    # Flush dua kali biar bersih
+    # Flush ARP
     for r in (r1, r2, r3):
         r.cmd('ip neigh flush all')
-    sleep(1)
-    for r in (r1, r2, r3):
-        r.cmd('ip neigh flush all')
+    sleep(2)
 
-    # Tes koneksi antar-router sebelum pingall
-    info('\n**** Tes antar-router (pre-ping) ****\n')
+    info('\n*** Tes pre-koneksi antar-router ***\n')
     r1.cmd('ping -c 1 10.0.1.2')
     r2.cmd('ping -c 1 10.0.3.2')
     r3.cmd('ping -c 1 10.0.3.1')
-
     sleep(2)
 
-    info('\n**** Uji konektivitas seluruh host ****\n')
+    info('\n*** Tes koneksi host h1 ke h2 dan h3 ***\n')
+    h1 = net['h1']
+    h1.cmdPrint('ping -c 2 10.0.2.2')
+    h1.cmdPrint('ping -c 2 10.0.4.2')
+
+    info('\n*** Tes konektivitas seluruh host (pingall) ***\n')
     net.pingAll()
 
     CLI(net)
