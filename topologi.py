@@ -8,25 +8,17 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel, info
 from time import sleep
 
-# ==========================
-# Class Router Linux
-# ==========================
 class LinuxRouter(Node):
     def config(self, **params):
         super(LinuxRouter, self).config(**params)
-        # Aktifkan IP forwarding agar router bisa meneruskan paket
         self.cmd('sysctl -w net.ipv4.ip_forward=1')
 
     def terminate(self):
         self.cmd('sysctl -w net.ipv4.ip_forward=0')
         super(LinuxRouter, self).terminate()
 
-# ==========================
-# Topologi Jaringan
-# ==========================
 class MyTopo(Topo):
     def build(self):
-
         # Router
         r1 = self.addNode('r1', cls=LinuxRouter, ip='10.0.0.1/24')
         r2 = self.addNode('r2', cls=LinuxRouter, ip='10.0.2.1/24')
@@ -51,9 +43,6 @@ class MyTopo(Topo):
                      intfName1='r2-eth2', params1={'ip': '10.0.3.1/30'},
                      intfName2='r3-eth0', params2={'ip': '10.0.3.2/30'})
 
-# ==========================
-# Fungsi Menjalankan Topologi
-# ==========================
 def run():
     topo = MyTopo()
     net = Mininet(topo=topo, link=TCLink, controller=None)
@@ -62,36 +51,41 @@ def run():
     info('\n**** Menambahkan routing statis antar router ****\n')
     r1, r2, r3 = net['r1'], net['r2'], net['r3']
 
-    # R1 Routes
+    # Routing antar-router
     r1.cmd('ip route add 10.0.2.0/24 via 10.0.1.2')
     r1.cmd('ip route add 10.0.3.0/30 via 10.0.1.2')
     r1.cmd('ip route add 10.0.4.0/24 via 10.0.1.2')
 
-    # R2 Routes
     r2.cmd('ip route add 10.0.0.0/24 via 10.0.1.1')
     r2.cmd('ip route add 10.0.4.0/24 via 10.0.3.2')
 
-    # R3 Routes
     r3.cmd('ip route add 10.0.0.0/24 via 10.0.3.1')
     r3.cmd('ip route add 10.0.2.0/24 via 10.0.3.1')
 
     info('\n**** Menunggu routing stabil... ****\n')
-    sleep(2)
+    sleep(3)
 
-    # Bersihkan cache ARP agar rute baru aktif penuh
+    # Flush dua kali biar bersih
     for r in (r1, r2, r3):
         r.cmd('ip neigh flush all')
+    sleep(1)
+    for r in (r1, r2, r3):
+        r.cmd('ip neigh flush all')
+
+    # Tes koneksi antar-router sebelum pingall
+    info('\n**** Tes antar-router (pre-ping) ****\n')
+    r1.cmd('ping -c 1 10.0.1.2')
+    r2.cmd('ping -c 1 10.0.3.2')
+    r3.cmd('ping -c 1 10.0.3.1')
+
+    sleep(2)
 
     info('\n**** Uji konektivitas seluruh host ****\n')
     net.pingAll()
 
-    # Buka CLI Mininet
     CLI(net)
     net.stop()
 
-# ==========================
-# Main Program
-# ==========================
 if __name__ == '__main__':
     setLogLevel('info')
     run()
